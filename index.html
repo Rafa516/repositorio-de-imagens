@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de URLs de Imagens</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .url-card {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .url-card:hover {
+            background-color: #f8f9fa;
+        }
+        .url-text {
+            user-select: all;
+            font-family: monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        .copy-notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: none;
+        }
+        #dropArea {
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #dropArea.highlight {
+            border-color: #0d6efd;
+            background-color: #f0f7ff;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <h1 class="mb-4">Gerador de URLs de Imagens</h1>
+        
+        <!-- Área de upload -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Adicionar Nova Imagem</h5>
+                
+                <div id="dropArea">
+                    <p>Arraste e solte imagens aqui ou</p>
+                    <input type="file" id="fileInput" accept="image/*" class="d-none">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Selecionar Arquivo</button>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="imageName" class="form-label">Nome para a imagem (opcional)</label>
+                    <input type="text" class="form-control" id="imageName" placeholder="Ex: Logo da Empresa">
+                </div>
+                
+                <button id="uploadBtn" class="btn btn-success" disabled>Gerar URL</button>
+            </div>
+        </div>
+        
+        <!-- Lista de URLs -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Suas URLs de Imagem</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>URL</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="urlList">
+                            <!-- URLs serão adicionadas aqui dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notificação de cópia -->
+    <div class="alert alert-success copy-notification" role="alert">
+        URL copiada com sucesso!
+    </div>
+    
+    <!-- Bootstrap JS + Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Array para armazenar as imagens
+        let images = [];
+        let currentFile = null;
+        
+        // Elementos do DOM
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const urlList = document.getElementById('urlList');
+        
+        // Carregar imagens do localStorage ao iniciar
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedImages = localStorage.getItem('imageUrls');
+            if (savedImages) {
+                images = JSON.parse(savedImages);
+                renderUrlList();
+            }
+        });
+        
+        // Manipulação do drag and drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            dropArea.classList.add('highlight');
+        }
+        
+        function unhighlight() {
+            dropArea.classList.remove('highlight');
+        }
+        
+        dropArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0 && files[0].type.startsWith('image/')) {
+                handleFiles(files);
+            }
+        }
+        
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0 && this.files[0].type.startsWith('image/')) {
+                handleFiles(this.files);
+            }
+        });
+        
+        function handleFiles(files) {
+            currentFile = files[0];
+            uploadBtn.disabled = false;
+            
+            // Mostrar pré-visualização do nome do arquivo
+            document.getElementById('imageName').placeholder = currentFile.name;
+        }
+        
+        uploadBtn.addEventListener('click', function() {
+            if (!currentFile) return;
+            
+            const name = document.getElementById('imageName').value || currentFile.name;
+            
+            // Simular upload e gerar URL
+            // Na prática, aqui você enviaria para um servidor real
+            const url = generateImageUrl(currentFile);
+            
+            // Adicionar à lista
+            images.push({
+                name: name,
+                url: url,
+                date: new Date().toISOString()
+            });
+            
+            // Salvar no localStorage
+            localStorage.setItem('imageUrls', JSON.stringify(images));
+            
+            // Atualizar a lista
+            renderUrlList();
+            
+            // Resetar o formulário
+            currentFile = null;
+            fileInput.value = '';
+            uploadBtn.disabled = true;
+            document.getElementById('imageName').value = '';
+            document.getElementById('imageName').placeholder = 'Ex: Logo da Empresa';
+        });
+        
+        // Função para simular geração de URL
+        function generateImageUrl(file) {
+            // Em um sistema real, isso seria substituído pelo URL do servidor
+            // Aqui estamos simulando com um objeto URL local
+            return `https://meuservidor.com/imagens/${Date.now()}_${file.name}`;
+        }
+        
+        // Renderizar a lista de URLs
+        function renderUrlList() {
+            urlList.innerHTML = '';
+            
+            if (images.length === 0) {
+                urlList.innerHTML = '<tr><td colspan="3" class="text-center">Nenhuma URL gerada ainda</td></tr>';
+                return;
+            }
+            
+            images.forEach((image, index) => {
+                const row = document.createElement('tr');
+                row.className = 'url-card';
+                row.onclick = () => copyUrl(image.url);
+                
+                row.innerHTML = `
+                    <td>${image.name}</td>
+                    <td class="url-text">${image.url}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUrl(event, ${index})">Excluir</button>
+                    </td>
+                `;
+                
+                urlList.appendChild(row);
+            });
+        }
+        
+        // Função para copiar URL
+        function copyUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                const notification = document.querySelector('.copy-notification');
+                notification.style.display = 'block';
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                }, 2000);
+            });
+        }
+        
+        // Função para excluir URL
+        function deleteUrl(event, index) {
+            event.stopPropagation();
+            
+            if (confirm('Tem certeza que deseja excluir esta URL?')) {
+                images.splice(index, 1);
+                localStorage.setItem('imageUrls', JSON.stringify(images));
+                renderUrlList();
+            }
+        }
+    </script>
+</body>
+</html>
