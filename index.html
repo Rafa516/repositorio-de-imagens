@@ -4,267 +4,226 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Repositório de Imagens</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .url-card {
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .url-card:hover {
-            background-color: #f8f9fa;
-        }
-        .url-text {
-            user-select: all;
-            font-family: monospace;
-            font-size: 14px;
+        .url-card { cursor: pointer; }
+        .url-text { 
+            font-family: monospace; 
             word-break: break-all;
-        }
-        .copy-notification {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            display: none;
+            user-select: all;
         }
         #dropArea {
-            border: 2px dashed #ccc;
+            border: 2px dashed #dee2e6;
             border-radius: 5px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 20px;
+            transition: all 0.3s;
         }
         #dropArea.highlight {
             border-color: #0d6efd;
-            background-color: #f0f7ff;
-        }
-        .badge-domain {
-            background-color: #6c757d;
+            background-color: #f8f9fa;
         }
     </style>
 </head>
 <body class="bg-light">
     <div class="container py-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Repositório de Imagens</h1>
-            <span class="badge badge-domain">https://repositorio-imagens.netlify.app</span>
+            <h1 class="mb-0">Repositório de Imagens</h1>
+            <span class="badge bg-secondary">https://repositorio-imagens.netlify.app</span>
         </div>
-        
-        <!-- Área de upload -->
+
         <div class="card mb-4">
             <div class="card-body">
                 <h5 class="card-title">Adicionar Nova Imagem</h5>
-                
-                <div id="dropArea">
-                    <p>Arraste e solte imagens aqui ou</p>
+                <div id="dropArea" class="p-5 text-center mb-3">
+                    <p class="mb-2">Arraste e solte imagens aqui</p>
+                    <small class="text-muted">ou</small>
                     <input type="file" id="fileInput" accept="image/*" class="d-none">
-                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Selecionar Arquivo</button>
+                    <button class="btn btn-primary mt-2" onclick="document.getElementById('fileInput').click()">
+                        Selecionar Arquivo
+                    </button>
                 </div>
                 
                 <div class="mb-3">
-                    <label for="imageName" class="form-label">Nome para a imagem (opcional)</label>
-                    <input type="text" class="form-control" id="imageName" placeholder="Ex: banner-promocional">
+                    <label class="form-label">Nome da Imagem (opcional)</label>
+                    <input type="text" id="imageName" class="form-control" placeholder="ex: banner-promocional">
                 </div>
                 
-                <button id="uploadBtn" class="btn btn-success" disabled>Gerar URL</button>
+                <button id="generateBtn" class="btn btn-success w-100" disabled>
+                    Gerar URL da Imagem
+                </button>
             </div>
         </div>
-        
-        <!-- Lista de URLs -->
+
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Suas URLs de Imagem</h5>
+                <h5 class="card-title">Suas URLs Geradas</h5>
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Nome</th>
+                                <th width="30%">Nome</th>
                                 <th>URL</th>
-                                <th>Ações</th>
+                                <th width="100px">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="urlList">
-                            <!-- URLs serão adicionadas aqui dinamicamente -->
+                            <!-- URLs serão inseridas aqui -->
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Notificação de cópia -->
-    <div class="alert alert-success copy-notification" role="alert">
-        URL copiada com sucesso!
+
+    <div class="toast align-items-center text-white bg-success position-fixed bottom-0 end-0 m-3" role="alert" id="toast">
+        <div class="d-flex">
+            <div class="toast-body">URL copiada com sucesso!</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
     </div>
-    
-    <!-- Bootstrap JS + Popper -->
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
     <script>
-        // Configuração
+        // Configurações
         const DOMAIN = 'https://repositorio-imagens.netlify.app';
-        const IMAGE_PATH = '/images/';
+        const BASE_PATH = '/images/';
+        const LOCAL_STORAGE_KEY = 'image_repository';
         
-        // Array para armazenar as imagens
-        let images = [];
-        let currentFile = null;
-        
-        // Elementos do DOM
-        const dropArea = document.getElementById('dropArea');
+        // Elementos
         const fileInput = document.getElementById('fileInput');
-        const uploadBtn = document.getElementById('uploadBtn');
+        const dropArea = document.getElementById('dropArea');
+        const generateBtn = document.getElementById('generateBtn');
         const urlList = document.getElementById('urlList');
+        const toast = new bootstrap.Toast(document.getElementById('toast'));
         
-        // Carregar imagens do localStorage ao iniciar
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedImages = localStorage.getItem('imageUrls');
-            if (savedImages) {
-                images = JSON.parse(savedImages);
-                renderUrlList();
-            }
+        // Estado
+        let currentFile = null;
+        let images = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || [];
+        
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', renderUrlList);
+        
+        // Handlers de arquivo
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(event => {
+            dropArea.addEventListener(event, preventDefaults, false);
         });
         
-        // Manipulação do drag and drop
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, preventDefaults, false);
+        ['dragenter', 'dragover'].forEach(event => {
+            dropArea.addEventListener(event, () => dropArea.classList.add('highlight'), false);
         });
+        
+        ['dragleave', 'drop'].forEach(event => {
+            dropArea.addEventListener(event, () => dropArea.classList.remove('highlight'), false);
+        });
+        
+        dropArea.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFileSelect, false);
+        generateBtn.addEventListener('click', generateImageUrl);
         
         function preventDefaults(e) {
             e.preventDefault();
             e.stopPropagation();
         }
         
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropArea.addEventListener(eventName, highlight, false);
-        });
-        
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, unhighlight, false);
-        });
-        
-        function highlight() {
-            dropArea.classList.add('highlight');
-        }
-        
-        function unhighlight() {
-            dropArea.classList.remove('highlight');
-        }
-        
-        dropArea.addEventListener('drop', handleDrop, false);
-        
         function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
+            const files = e.dataTransfer.files;
+            if (files.length > 0) handleFile(files[0]);
+        }
+        
+        function handleFileSelect() {
+            if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+        }
+        
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Por favor, selecione um arquivo de imagem');
+                return;
+            }
             
-            if (files.length > 0 && files[0].type.startsWith('image/')) {
-                handleFiles(files);
+            currentFile = file;
+            generateBtn.disabled = false;
+            
+            // Preenche automaticamente o nome se vazio
+            if (!document.getElementById('imageName').value) {
+                const fileName = file.name.replace(/\.[^/.]+$/, "");
+                document.getElementById('imageName').value = fileName;
             }
         }
         
-        fileInput.addEventListener('change', function() {
-            if (this.files.length > 0 && this.files[0].type.startsWith('image/')) {
-                handleFiles(this.files);
-            }
-        });
-        
-        function handleFiles(files) {
-            currentFile = files[0];
-            uploadBtn.disabled = false;
-            
-            // Mostrar pré-visualização do nome do arquivo
-            document.getElementById('imageName').placeholder = currentFile.name;
-        }
-        
-        uploadBtn.addEventListener('click', function() {
+        function generateImageUrl() {
             if (!currentFile) return;
             
             const name = document.getElementById('imageName').value || 
-                        currentFile.name.replace(/\.[^/.]+$/, ""); // Remove extensão
+                        `imagem-${Date.now()}`;
+            const extension = currentFile.name.split('.').pop().toLowerCase();
+            const safeName = name
+                .toLowerCase()
+                .replace(/[^a-z0-9-]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
             
-            // Gerar URL no formato: https://repositorio-imagens.netlify.app/images/nome-do-arquivo-123456.jpg
-            const url = generateImageUrl(currentFile, name);
+            const imageUrl = `${DOMAIN}${BASE_PATH}${safeName}-${Date.now()}.${extension}`;
             
-            // Adicionar à lista
-            images.push({
+            // Adiciona ao histórico
+            images.unshift({
                 name: name,
-                url: url,
-                filename: currentFile.name,
-                date: new Date().toISOString()
+                url: imageUrl,
+                date: new Date().toISOString(),
+                filename: currentFile.name
             });
             
-            // Salvar no localStorage
-            localStorage.setItem('imageUrls', JSON.stringify(images));
-            
-            // Atualizar a lista
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(images));
             renderUrlList();
             
-            // Resetar o formulário
+            // Reset
             currentFile = null;
             fileInput.value = '';
-            uploadBtn.disabled = true;
-            document.getElementById('imageName').value = '';
-            document.getElementById('imageName').placeholder = 'Ex: banner-promocional';
-        });
-        
-        // Função para gerar URL no seu domínio
-        function generateImageUrl(file, customName) {
-            const timestamp = Date.now();
-            const extension = file.name.split('.').pop().toLowerCase();
-            const safeName = customName
-                .toLowerCase()
-                .replace(/[^a-z0-9-]/g, '-')  // Substitui caracteres especiais por hífens
-                .replace(/-+/g, '-')           // Remove múltiplos hífens consecutivos
-                .replace(/^-|-$/g, '');        // Remove hífens no início e fim
-            
-            return `${DOMAIN}${IMAGE_PATH}${safeName}-${timestamp}.${extension}`;
+            generateBtn.disabled = true;
         }
         
-        // Renderizar a lista de URLs
         function renderUrlList() {
             urlList.innerHTML = '';
             
             if (images.length === 0) {
-                urlList.innerHTML = '<tr><td colspan="3" class="text-center">Nenhuma URL gerada ainda</td></tr>';
+                urlList.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-muted">
+                            Nenhuma URL gerada ainda
+                        </td>
+                    </tr>
+                `;
                 return;
             }
-            
-            // Ordenar por data (mais recente primeiro)
-            images.sort((a, b) => new Date(b.date) - new Date(a.date));
             
             images.forEach((image, index) => {
                 const row = document.createElement('tr');
                 row.className = 'url-card';
-                row.onclick = () => copyUrl(image.url);
-                
                 row.innerHTML = `
                     <td>${image.name}</td>
                     <td class="url-text">${image.url}</td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUrl(event, ${index})">Excluir</button>
+                    <td class="text-nowrap">
+                        <button class="btn btn-sm btn-outline-primary" onclick="copyUrl('${image.url}')">
+                            Copiar
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUrl(${index})">
+                            Excluir
+                        </button>
                     </td>
                 `;
-                
                 urlList.appendChild(row);
             });
         }
         
-        // Função para copiar URL
         function copyUrl(url) {
             navigator.clipboard.writeText(url).then(() => {
-                const notification = document.querySelector('.copy-notification');
-                notification.style.display = 'block';
-                setTimeout(() => {
-                    notification.style.display = 'none';
-                }, 2000);
+                toast.show();
+                setTimeout(() => toast.hide(), 2000);
             });
         }
         
-        // Função para excluir URL
-        function deleteUrl(event, index) {
-            event.stopPropagation();
-            
+        function deleteUrl(index) {
             if (confirm('Tem certeza que deseja excluir esta URL?')) {
                 images.splice(index, 1);
-                localStorage.setItem('imageUrls', JSON.stringify(images));
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(images));
                 renderUrlList();
             }
         }
